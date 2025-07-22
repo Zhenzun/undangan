@@ -152,7 +152,7 @@ async function loadComments() {
       const symbol = data.attendance === "hadir" ? "✅" : "❌";
       const date = new Date(data.timestamp);
       const timeStr = date.toLocaleString("id-ID", { dateStyle: "short", timeStyle: "short" });
-      i.innerHTML = `
+      li.innerHTML = `
         <div style="border-bottom:1px solid #ccc; padding:10px 0;">
           <strong>${data.name} ${symbol}</strong><br/>
           <p>${data.message}</p>
