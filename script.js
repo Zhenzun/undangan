@@ -1,45 +1,56 @@
-// Ambil elemen penting
+// Firebase Modular v12
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-analytics.js";
+import {
+  getFirestore,
+  collection,
+  addDoc,
+  getDocs,
+  query,
+  orderBy
+} from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
+
+// Konfigurasi Firebase
+const firebaseConfig = {
+  apiKey: "AIzaSyABrYDmJ53ZyKiW1uGkp727FxwPEENaKNs",
+  authDomain: "database-d8ec1.firebaseapp.com",
+  projectId: "database-d8ec1",
+  storageBucket: "database-d8ec1.firebasestorage.app",
+  messagingSenderId: "521321838381",
+  appId: "1:521321838381:web:0c65d78ce797072c88c5a4",
+  measurementId: "G-T67XCL4NCQ"
+};
+
+// Inisialisasi Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
+const db = getFirestore(app);
+
+// ========== Inisialisasi elemen ========== //
 const invitation = document.getElementById("invitation");
 const guestNameSpots = document.querySelectorAll("#guest-name, #guest-name-2");
-const rsvpBtn = document.getElementById("rsvp-btn");
 const bgMusic = document.getElementById("bg-music");
 
-// Ambil nama dari URL (contoh: ?to=Rina%20Wijaya)
 const params = new URLSearchParams(window.location.search);
-const name = params.get("to");
-const decodedName = name ? decodeURIComponent(name.replace(/\+/g, ' ')) : "Tamu Undangan";
+const nameParam = params.get("to");
+const decodedName = nameParam ? decodeURIComponent(nameParam.replace(/\+/g, ' ')) : "Tamu Undangan";
 
-// Tampilkan nama di undangan
+// Tampilkan nama tamu di elemen
 guestNameSpots.forEach(el => el.textContent = decodedName);
 
-// Ubah tombol RSVP otomatis
-rsvpBtn.href = `https://wa.me/6281234567890?text=Halo%20saya%20${encodeURIComponent(decodedName)},%20insyaAllah%20akan%20hadir%20ke%20acara%20pernikahan%20Kerin%20dan%20Fika.`;
-
 // Fungsi buka undangan
-function openInvitation() {
+window.openInvitation = function () {
   document.getElementById("cover").style.display = "none";
   invitation.style.display = "block";
 
-  // Putar musik
   if (bgMusic) {
     bgMusic.play().catch(() => {
-      // Autoplay bisa diblokir di beberapa browser, user bisa pencet manual
       console.log("User interaction required to play music.");
     });
   }
 
-  // Opsional: munculkan efek daun jatuh
-  for (let i = 0; i < 10; i++) {
-    createFallingLeaf();
-  }
-}
-
-// Efek daun jatuh terus menerus
-function startLeafFallLoop() {
-  setInterval(() => {
-    createFallingLeaf();
-  }, 600); // setiap 600ms bikin 1 daun baru
-}
+  startLeafFallLoop();
+};
 
 // Efek daun jatuh
 function createFallingLeaf() {
@@ -50,25 +61,14 @@ function createFallingLeaf() {
   leaf.style.opacity = Math.random();
   document.body.appendChild(leaf);
 
-  // Hapus daun setelah 10 detik
   setTimeout(() => leaf.remove(), 10000);
 }
 
-// Fungsi buka undangan
-function openInvitation() {
-  document.getElementById("cover").style.display = "none";
-  invitation.style.display = "block";
-
-  if (bgMusic) {
-    bgMusic.play().catch(() => {
-      console.log("User interaction required to play music.");
-    });
-  }
-
-  // Mulai efek daun jatuh terus menerus
-  startLeafFallLoop();
+function startLeafFallLoop() {
+  setInterval(createFallingLeaf, 600);
 }
-// Hitung mundur ke hari-H
+
+// Countdown
 const weddingDate = new Date("2025-08-10T08:00:00").getTime();
 
 function updateCountdown() {
@@ -85,13 +85,78 @@ function updateCountdown() {
   document.getElementById("minutes").textContent = minutes;
   document.getElementById("seconds").textContent = seconds;
 
-  // Jika sudah lewat, stop & tampilkan pesan
   if (distance < 0) {
     clearInterval(countdownInterval);
     document.getElementById("countdown").innerHTML = "<p>Acara telah selesai 💍</p>";
   }
 }
 
-// Update setiap detik
 const countdownInterval = setInterval(updateCountdown, 1000);
-updateCountdown(); // jalankan sekali saat awal
+updateCountdown();
+
+// =====================
+// Form RSVP dan Firebase
+// =====================
+const form = document.getElementById("rsvp-form");
+const hadirCount = document.getElementById("hadir-count");
+const tidakHadirCount = document.getElementById("tidak-hadir-count");
+const commentList = document.getElementById("comment-list");
+
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const name = document.getElementById("name").value.trim();
+  const attendance = document.getElementById("attendance").value;
+  const message = document.getElementById("message").value.trim();
+
+  if (!name || !attendance) {
+    alert("Silakan lengkapi nama dan kehadiran.");
+    return;
+  }
+
+  await addDoc(collection(db, "rsvp"), {
+    name,
+    attendance,
+    message,
+    timestamp: Date.now()
+  });
+
+  form.reset();
+  loadStats();
+  loadComments();
+});
+
+// Tampilkan jumlah hadir / tidak hadir
+async function loadStats() {
+  const snapshot = await getDocs(collection(db, "rsvp"));
+  let hadir = 0, tidak = 0;
+  snapshot.forEach((doc) => {
+    const data = doc.data();
+    if (data.attendance === "hadir") hadir++;
+    if (data.attendance === "tidak_hadir") tidak++;
+  });
+
+  hadirCount.textContent = hadir;
+  tidakHadirCount.textContent = tidak;
+}
+
+// Tampilkan komentar ucapan
+async function loadComments() {
+  commentList.innerHTML = "";
+  const q = query(collection(db, "rsvp"), orderBy("timestamp", "desc"));
+  const snapshot = await getDocs(q);
+
+  snapshot.forEach((doc) => {
+    const data = doc.data();
+    if (data.message) {
+      const li = document.createElement("li");
+      li.innerHTML = `<strong>${data.name}:</strong> ${data.message}`;
+      commentList.appendChild(li);
+    }
+  });
+}
+
+// Load data awal saat halaman dibuka
+document.addEventListener("DOMContentLoaded", () => {
+  loadStats();
+  loadComments();
+});
