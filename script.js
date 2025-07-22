@@ -35,8 +35,10 @@ const params = new URLSearchParams(window.location.search);
 const nameParam = params.get("to");
 const decodedName = nameParam ? decodeURIComponent(nameParam.replace(/\+/g, ' ')) : "Tamu Undangan";
 
+// Tampilkan nama tamu di elemen
 guestNameSpots.forEach(el => el.textContent = decodedName);
 
+// Fungsi buka undangan
 window.openInvitation = function () {
   document.getElementById("cover").style.display = "none";
   invitation.style.display = "block";
@@ -50,6 +52,7 @@ window.openInvitation = function () {
   startLeafFallLoop();
 };
 
+// Efek daun jatuh
 function createFallingLeaf() {
   const leaf = document.createElement("div");
   leaf.classList.add("leaf");
@@ -65,6 +68,7 @@ function startLeafFallLoop() {
   setInterval(createFallingLeaf, 600);
 }
 
+// Countdown
 const weddingDate = new Date("2025-08-10T08:00:00").getTime();
 
 function updateCountdown() {
@@ -90,6 +94,9 @@ function updateCountdown() {
 const countdownInterval = setInterval(updateCountdown, 1000);
 updateCountdown();
 
+// =====================
+// Form RSVP dan Firebase
+// =====================
 const form = document.getElementById("rsvp-form");
 const hadirCount = document.getElementById("hadir-count");
 const tidakHadirCount = document.getElementById("tidak-hadir-count");
@@ -118,6 +125,7 @@ form.addEventListener("submit", async (e) => {
   loadComments();
 });
 
+// Tampilkan jumlah hadir / tidak hadir
 async function loadStats() {
   const snapshot = await getDocs(collection(db, "rsvp"));
   let hadir = 0, tidak = 0;
@@ -131,6 +139,7 @@ async function loadStats() {
   tidakHadirCount.textContent = tidak;
 }
 
+// Tampilkan komentar ucapan
 async function loadComments() {
   commentList.innerHTML = "";
   const q = query(collection(db, "rsvp"), orderBy("timestamp", "desc"));
@@ -143,8 +152,7 @@ async function loadComments() {
       const symbol = data.attendance === "hadir" ? "✅" : "❌";
       const date = new Date(data.timestamp);
       const timeStr = date.toLocaleString("id-ID", { dateStyle: "short", timeStyle: "short" });
-
-      li.innerHTML = `
+      i.innerHTML = `
         <div style="border-bottom:1px solid #ccc; padding:10px 0;">
           <strong>${data.name} ${symbol}</strong><br/>
           <p>${data.message}</p>
@@ -156,6 +164,7 @@ async function loadComments() {
   });
 }
 
+// Load data awal saat halaman dibuka
 document.addEventListener("DOMContentLoaded", () => {
   loadStats();
   loadComments();
