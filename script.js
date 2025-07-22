@@ -1,33 +1,55 @@
-// Inisialisasi elemen
+// Firebase Modular v12
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-analytics.js";
+import {
+  getFirestore,
+  collection,
+  addDoc,
+  getDocs,
+  query,
+  orderBy
+} from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
+
+// Konfigurasi Firebase
+const firebaseConfig = {
+  apiKey: "AIzaSyABrYDmJ53ZyKiW1uGkp727FxwPEENaKNs",
+  authDomain: "database-d8ec1.firebaseapp.com",
+  projectId: "database-d8ec1",
+  storageBucket: "database-d8ec1.firebasestorage.app",
+  messagingSenderId: "521321838381",
+  appId: "1:521321838381:web:0c65d78ce797072c88c5a4",
+  measurementId: "G-T67XCL4NCQ"
+};
+
+// Inisialisasi Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
+const db = getFirestore(app);
+
+// ========== Inisialisasi elemen ========== //
 const invitation = document.getElementById("invitation");
 const guestNameSpots = document.querySelectorAll("#guest-name, #guest-name-2");
 const bgMusic = document.getElementById("bg-music");
 
-// Ambil nama tamu dari URL (?to=Nama+Tamu)
 const params = new URLSearchParams(window.location.search);
-const name = params.get("to");
-const decodedName = name ? decodeURIComponent(name.replace(/\+/g, ' ')) : "Tamu Undangan";
+const nameParam = params.get("to");
+const decodedName = nameParam ? decodeURIComponent(nameParam.replace(/\+/g, ' ')) : "Tamu Undangan";
 
-// Tampilkan nama
 guestNameSpots.forEach(el => el.textContent = decodedName);
 
-// Fungsi membuka undangan
-function openInvitation() {
+window.openInvitation = function () {
   document.getElementById("cover").style.display = "none";
   invitation.style.display = "block";
 
-  // Mainkan musik
   if (bgMusic) {
     bgMusic.play().catch(() => {
       console.log("User interaction required to play music.");
     });
   }
 
-  // Mulai efek daun jatuh
   startLeafFallLoop();
-}
+};
 
-// Efek daun jatuh
 function createFallingLeaf() {
   const leaf = document.createElement("div");
   leaf.classList.add("leaf");
@@ -40,12 +62,9 @@ function createFallingLeaf() {
 }
 
 function startLeafFallLoop() {
-  setInterval(() => {
-    createFallingLeaf();
-  }, 600);
+  setInterval(createFallingLeaf, 600);
 }
 
-// Countdown
 const weddingDate = new Date("2025-08-10T08:00:00").getTime();
 
 function updateCountdown() {
@@ -71,20 +90,6 @@ function updateCountdown() {
 const countdownInterval = setInterval(updateCountdown, 1000);
 updateCountdown();
 
-// FIREBASE
-const firebaseConfig = {
-  apiKey: "AIzaSyABrYDmJ53ZyKiW1uGkp727FxwPEENaKNs",
-  authDomain: "database-d8ec1.firebaseapp.com",
-  projectId: "database-d8ec1",
-  storageBucket: "database-d8ec1.firebasestorage.app",
-  messagingSenderId: "521321838381",
-  appId: "1:521321838381:web:0c65d78ce797072c88c5a4",
-  measurementId: "G-T67XCL4NCQ"
-};
-
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-
 const form = document.getElementById("rsvp-form");
 const hadirCount = document.getElementById("hadir-count");
 const tidakHadirCount = document.getElementById("tidak-hadir-count");
@@ -101,12 +106,11 @@ form.addEventListener("submit", async (e) => {
     return;
   }
 
-  await db.collection("rsvp").add({
+  await addDoc(collection(db, "rsvp"), {
     name,
     attendance,
     message,
-    timestamp: Date.now(),
-    replies: []
+    timestamp: Date.now()
   });
 
   form.reset();
@@ -115,109 +119,44 @@ form.addEventListener("submit", async (e) => {
 });
 
 async function loadStats() {
-  const snapshot = await db.collection("rsvp").get();
+  const snapshot = await getDocs(collection(db, "rsvp"));
   let hadir = 0, tidak = 0;
-  snapshot.forEach(doc => {
+  snapshot.forEach((doc) => {
     const data = doc.data();
     if (data.attendance === "hadir") hadir++;
     if (data.attendance === "tidak_hadir") tidak++;
   });
+
   hadirCount.textContent = hadir;
   tidakHadirCount.textContent = tidak;
 }
 
-let currentPage = 1;
-const perPage = 5;
-
-async function loadComments(page = 1) {
+async function loadComments() {
   commentList.innerHTML = "";
-  const snapshot = await db.collection("rsvp").orderBy("timestamp", "desc").get();
-  const docs = snapshot.docs;
-  const total = docs.length;
-  const start = (page - 1) * perPage;
-  const end = page * perPage;
-  const visibleDocs = docs.slice(start, end);
+  const q = query(collection(db, "rsvp"), orderBy("timestamp", "desc"));
+  const snapshot = await getDocs(q);
 
-  visibleDocs.forEach(doc => {
+  snapshot.forEach((doc) => {
     const data = doc.data();
-    const date = new Date(data.timestamp).toLocaleString();
-    const symbol = data.attendance === "hadir" ? "✅" : "❌";
+    if (data.message) {
+      const li = document.createElement("li");
+      const symbol = data.attendance === "hadir" ? "✅" : "❌";
+      const date = new Date(data.timestamp);
+      const timeStr = date.toLocaleString("id-ID", { dateStyle: "short", timeStyle: "short" });
 
-    const li = document.createElement("li");
-    li.innerHTML = `
-      <div style="border-bottom: 1px solid #ccc; padding: 10px 0;">
-        <div style="display: flex; justify-content: space-between;">
-          <strong>${data.name} ${symbol}</strong>
-          <small>${date}</small>
+      li.innerHTML = `
+        <div style="border-bottom:1px solid #ccc; padding:10px 0;">
+          <strong>${data.name} ${symbol}</strong><br/>
+          <p>${data.message}</p>
+          <small>${timeStr} <button onclick="alert('fitur balas belum aktif')">Balas</button></small>
         </div>
-        <div style="margin-top: 5px;">${data.message || "(Tidak ada ucapan)"}</div>
-        <div style="margin-top: 5px;">
-          <button onclick="replyToComment('${doc.id}')">Reply</button>
-        </div>
-        <ul id="replies-${doc.id}" style="margin-top: 5px; padding-left: 15px;"></ul>
-      </div>
-    `;
-    commentList.appendChild(li);
-    loadReplies(doc.id, data.replies || []);
-  });
-
-  renderPagination(total);
-}
-
-function renderPagination(total) {
-  const pageNav = document.getElementById("pagination");
-  pageNav.innerHTML = "";
-  const totalPages = Math.ceil(total / perPage);
-
-  if (totalPages <= 1) return;
-
-  if (currentPage > 1) {
-    const prevBtn = document.createElement("button");
-    prevBtn.textContent = "Previous";
-    prevBtn.onclick = () => {
-      currentPage--;
-      loadComments(currentPage);
-    };
-    pageNav.appendChild(prevBtn);
-  }
-
-  if (currentPage < totalPages) {
-    const nextBtn = document.createElement("button");
-    nextBtn.textContent = "Next";
-    nextBtn.onclick = () => {
-      currentPage++;
-      loadComments(currentPage);
-    };
-    pageNav.appendChild(nextBtn);
-  }
-}
-
-async function replyToComment(commentId) {
-  const reply = prompt("Tulis balasan Anda:");
-  if (!reply) return;
-
-  const commentRef = db.collection("rsvp").doc(commentId);
-  const doc = await commentRef.get();
-  const data = doc.data();
-
-  const replies = data.replies || [];
-  replies.push({ text: reply, timestamp: Date.now() });
-
-  await commentRef.update({ replies });
-  loadComments(currentPage);
-}
-
-function loadReplies(id, replies) {
-  const replyList = document.getElementById(`replies-${id}`);
-  replies.forEach(reply => {
-    const li = document.createElement("li");
-    const time = new Date(reply.timestamp).toLocaleString();
-    li.innerHTML = `<div style="display: flex; justify-content: space-between;"><em>${reply.text}</em><small>${time}</small></div>`;
-    replyList.appendChild(li);
+      `;
+      commentList.appendChild(li);
+    }
   });
 }
 
 document.addEventListener("DOMContentLoaded", () => {
   loadStats();
-  loadComments(currentPage);
+  loadComments();
 });
